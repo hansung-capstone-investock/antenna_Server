@@ -14,5 +14,5 @@ urlpatterns = [
     path('btApp/',views.backAppapi),
     path('stocksearch/', views.stockSearchData),
     path('compare3/',views.before3M),
-    path('topStock/',views.topStock),
+    path('topstock/',views.topStock),
 ]

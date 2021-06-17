@@ -107,9 +107,7 @@ def topStock(request):
         maxDate = TopStockPrice.objects.using("stockDB").order_by("-date")[0].date
         topPriceList = TopStockPrice.objects.using("stockDB").filter(date=maxDate)
         
-        index = list()
-        index.append(maxDate)
-        index.append("Price")
+        b = list()
         for a in topPriceList:
             temp=dict()
             temp['rank']=a.rank
@@ -117,12 +115,13 @@ def topStock(request):
             temp['company'] = a.company
             temp['todayPrice'] = a.todayPrice
             temp['diff'] = a.gap
-            index.append(temp)
+            b.append(temp)
+
         
         maxDate = TopStockCap.objects.using("stockDB").order_by("-date")[0].date
         topCapList = TopStockCap.objects.using("stockDB").filter(date=maxDate)
         
-        index.append("Cap")
+        c= list()
         for a in topCapList:
             temp=dict()
             temp['rank']=a.rank
@@ -130,8 +129,9 @@ def topStock(request):
             temp['company'] = a.company
             temp['todayPrice'] = a.todayPrice
             temp['diff'] = a.gap
-            index.append(temp)
-        return Response(index)
+            c.append(temp)
+        a= {"date":maxDate,"price":b,"cap":c}
+        return Response(a)
     
 @api_view(['GET'])
 def marketList(request):
