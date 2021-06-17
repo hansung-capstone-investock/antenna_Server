@@ -15,5 +15,9 @@ urlpatterns = [
     path('stocksearch/', views.stockSearchData),
     path('compare3/',views.before3M),
     path('topstock/',views.topStock),
+<<<<<<< HEAD
     path('backtestlog/',views.backtestLogData),
 ]
+=======
+]
+>>>>>>> c129a3abcebb79dbc16e57094fb54d23502be0f2
