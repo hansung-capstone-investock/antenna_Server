@@ -1,6 +1,3 @@
-from os import name
-from textwrap import indent
-from stock.serializers import StockSerializer
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from .models import *
@@ -16,146 +13,158 @@ from rest_framework.parsers import JSONParser
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from account.serializers import *
-from stock.serializers import *
-import datetime
-from datetime import timedelta
-import pprint
+from scraping.serializers import *
+from django.db.models import Count
 
-# Create your views here.
-@api_view(['GET', 'POST'])
-def account_list(request):
-    if request.method == 'GET':
-        account = accountData.objects.all()
-        account_serializer = AccountSerializer(account, many=True)
-        return Response(account_serializer.data)
 
-    elif request.method == 'POST':
-        account_serializer = AccountSerializer(data=request.data)
-        if account_serializer.is_valid():
-            account_serializer.save()
-            return Response(account_serializer.data, status=status.HTTP_201_CREATED)
-        return Response(account_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+# dcinside 주식갤러리 크롤링
+def parse_dc(request):
+    url = 'https://gall.dcinside.com/board/lists/?id=neostock'
+    # &page=1
+    # 전체 페이지 읽어오기
+    df = pd.DataFrame()
+    for page in range(1, int(500)+1):
+        page_url = '{}&page={}'.format(url, page)
+        response_page = requests.get(page_url, headers={'User-agent': 'Mozilla/5.0'}).text
+        df = df.append(pd.read_html(response_page)[0])
+    df = df.dropna()
+    df = df.drop_duplicates()
 
-@api_view(['POST'])
-def login(request):
-    if request.method == 'POST':
-        userid = request.data['id']
-        userpw = request.data['password']
+    dcData.truncate()
 
-        account = accountData.objects.filter(id=userid, password=userpw)
-        account_serializer = AccountSerializer(account, many=True)
+    kiwi = Kiwi()
+    kiwi.prepare()
+    temp = {}
+    data = {}
+    wordCounts = {}
+    res = {}
+    i = 0
+    for nouns in df['제목']:
+        noun = kiwi.analyze(nouns)
+        temp = noun
+        # 명사만 저장
         try:
-            id = account_serializer.data[0]['id']
-            password = account_serializer.data[0]['password']
+            if (temp[0][0][0][1] == "NNG") or (temp[0][0][0][1] == "NNP") or (temp[0][0][0][1] == "NNB") or (temp[0][0][0][1] == "NR") or (temp[0][0][0][1] == "NP"):
+                    if len(temp[0][0][0][0]) != 1:  # 한글자 단어 제거
+                        data = temp[0][0][0][0]
+                        if data not in wordCounts:
+                            wordCounts[data] = 0
+                        wordCounts[data] += 1
+                        res[data] = wordCounts[data]
         except IndexError:
-            return JsonResponse({"code": "1001", "msg": "로그인 실패하셨습니다."}, status=200)
-        if (id, password) == (userid, userpw):
-            return JsonResponse({"code": "0000", "msg": "로그인 성공하셨습니다."}, status=200)
+            continue
+    for i, j in zip(res.keys(), res.values()):
+        dcData(title=i, count=j).save()
+    return 0
 
-@api_view(['POST'])
-def signup(request):
-    if request.method == 'POST':
-        account_serializer = AccountSerializer(data=request.data)
-        if account_serializer.is_valid():
-            account_serializer.save()
-            interestedstockData(
-                name = request.data['id']
-            ).save()
-            interestedstockData(
-                name = request.data['id']
-            ).save()
-            interestedstockData(
-                name = request.data['id']
-            ).save()
-            return JsonResponse({"code": "0000", "msg": "회원가입 성공하셨습니다."}, status=200)
-        else:
-            return JsonResponse({"code": "1001", "msg": "회원가입 실패하셨습니다."}, status=200)
+#네이버 증권 주요 뉴스 스크래핑
+def crawlerNews(request):
+    MainNews.truncate()
 
-@api_view(['POST'])
-def interestedstock_Update(request):
-    if request.method == 'POST':
-        interestedstockData.objects.filter(id = request.data['id']).update(group=request.data['group'])
-        interestedstockData.objects.filter(id = request.data['id']).update(company1 = request.data['company1'])
-        interestedstockData.objects.filter(id = request.data['id']).update(company2 = request.data['company2'])
-        interestedstockData.objects.filter(id = request.data['id']).update(company3 = request.data['company3'])
-        interestedstockData.objects.filter(id = request.data['id']).update(company4 = request.data['company4'])
-        interestedstockData.objects.filter(id = request.data['id']).update(company5 = request.data['company5'])
-        interestedstockData.objects.filter(id = request.data['id']).update(company6 = request.data['company6'])
-        interestedstockData.objects.filter(id = request.data['id']).update(company7 = request.data['company7'])
-        interestedstockData.objects.filter(id = request.data['id']).update(company8 = request.data['company8'])
-        interestedstockData.objects.filter(id = request.data['id']).update(company9 = request.data['company9'])
-        interestedstockData.objects.filter(id = request.data['id']).update(company10 = request.data['company10'])
+    BASE_URL = 'https://finance.naver.com/'
+    
+    now = dt.datetime.now()
+    nowDate = now.strftime('%Y-%m-%d')
+    nowTime = now.strftime('%H:%M:%S').split(':')[0]
+    # url = BASE_URL+"news/mainnews.nhn?date="+str(nowDate)
+    baseurl = BASE_URL+"news/mainnews.nhn?date="
+    for i in range(0, 100):
+        url = baseurl + str((now - dt.timedelta(i)).strftime('%Y-%m-%d'))
+        res = req.urlopen(url)
+        soup = BeautifulSoup(res,"html.parser",from_encoding='euc-kr')
+        articleList = soup.select("#contentarea_left > div.mainNewsList > ul > li > dl")
 
-        interested = interestedstockData.objects.filter(id = request.data['id'])
-        interested_serializer = InterestedstockSerializer(interested, many=True)
-        dict_temp = {}
-
-        for j in range(1,11):
-            dict_temp['company{0}'.format(j)] = interested_serializer.data[0]['company{0}'.format(j)]
-        interested_serializer.data[0]['companies'] = dict_temp
-        for j in range(1,11):
-            del interested_serializer.data[0]['company{0}'.format(j)]
-
-        return JsonResponse(interested_serializer.data, safe=False)
-
-@api_view(['POST'])
-def interestedgroup_list(request):
-    if request.method == 'POST':
-        interested = interestedstockData.objects.filter(name = request.data['name'])
-        interested_serializer = InterestedstockSerializer(interested, many=True)
-        for i in range(0, 3):
-            dict_temp = {}
-            for j in range(1,11):
-                dict_temp['company{0}'.format(j)] = interested_serializer.data[i]['company{0}'.format(j)]
-            interested_serializer.data[i]['companies'] = dict_temp
-        for i in range(0,3):
-            for j in range(1,11):
-                del interested_serializer.data[i]['company{0}'.format(j)]
-        return JsonResponse(interested_serializer.data, safe=False)
-
-@api_view(['POST'])
-def interestedgroup_list_web(request):
-    if request.method == 'POST':
-        interested = interestedstockData.objects.filter(name = request.data['name'])
-        interested_serializer = InterestedstockSerializer(interested, many=True)
-
+        # 기사를 매시각 정각마다 1시간씩 받아오도록 반복문 설정
+        title_list=[]
         
-        for i in range(0, 3):
-            dict_temp = {}
-            for j in range(1,11):
-                company_name = interested_serializer.data[i]['company{0}'.format(j)]
-                # dict_temp['company{0}'.format(j)]
-                if (company_name == 'null') or (company_name is None) or (company_name == ""):
-                    continue
-                else:
-                    print(i, company_name)
-                    code = StockList.objects.using("stockDB").filter(company = company_name)
-                    code_serializer = StockListSerializer(code, many=True)
+        for article in articleList:
+            articleTime = article.select_one(".articleSummary > .wdate").get_text()
+            # articleHour = int(articleTime.split(' ')[1].split(':')[0]) 
+            # if articleHour <  int(nowTime)-1:
+            #     break
+            title = article.select_one(".articleSubject > a").get_text()
+            summaryList = article.select_one(".articleSummary").get_text().strip().split('..')[0]
+            linkList = article.select_one(".articleSubject > a")
+            links = url
+            links += linkList.attrs['href']
+            link = url[0:25] + links[59:]
+            
+            mainnews = MainNews(
+                title = title,
+                summary= summaryList,
+                link = link,
+                publishDay = nowDate
+            )
+            mainnews.save()
 
-                    company_code = code_serializer.data[0]['code']
+    return HttpResponse("메인뉴스 크롤링")
 
-                    today = (datetime.datetime.now()-timedelta(1)).strftime('%Y-%m-%d')
-                    weeks_ago = (datetime.datetime.now()-timedelta(7)).strftime('%Y-%m-%d')
+def liveNews(request):
+    LiveNews.truncate()
+    url = 'https://finance.naver.com/news/news_list.nhn?&page='# {페이지}&date={날짜}
+    now = dt.datetime.now()
 
-                    exeStr = 'StockX{0}.objects.using("stockDB").filter(date__range=["{1}", "{2}"])'.format(company_code, weeks_ago, today)
-                    stockData = eval(exeStr)
-                    stockData_serializer = StockSerializer(stockData, many=True)
-                    stock_length = len(stockData_serializer.data) - 1
+    for i in range(0, 50):
+        for j in range(1, 50):
+            page_url = url + str(j) + str((now - dt.timedelta(i)).strftime('%Y%m%d'))
+            res = req.urlopen(page_url)
+            soup = BeautifulSoup(res,"html.parser",from_encoding='euc-kr')
+            
+            # newsList top
+            titleList = soup.select("#contentarea_left > ul > li.newsList.top > dl > .articleSubject > a")
+            summaryList = soup.select("#contentarea_left > ul > li.newsList.top > dl > .articleSummary")
+            linkList = soup.select("#contentarea_left > ul > li.newsList.top > dl > .articleSubject > a")
+            dateList = soup.select("#contentarea_left > ul > li.newsList.top > dl > .articleSummary > .wdate")
+            for title, summary, link, date in zip(titleList, summaryList, linkList, dateList):
+                link = link.attrs['href']
+                links = url[0:25] + link[0:55]
+                title = title.text
+                summary = summary.text.strip().split('..')[0]
+                date = date.text
+                LiveNews(
+                    title = title,
+                    summary = summary,
+                    link = links,
+                    publishDate = date
+                ).save()
 
-                    yesterday_close = stockData_serializer.data[stock_length-1]['close']
-                    today_close = stockData_serializer.data[stock_length]['close']
+            # newsList bottom
+            titleList = soup.select("#contentarea_left > ul > li:nth-of-type(2) > dl > .articleSubject > a")
+            summaryList = soup.select("#contentarea_left > ul > li:nth-of-type(2) > dl > .articleSummary")
+            linkList = soup.select("#contentarea_left > ul > li:nth-of-type(2) > dl > .articleSubject > a")
+            dateList = soup.select("#contentarea_left > ul > li:nth-of-type(2) > dl > .articleSummary > .wdate")
+            for title, summary, link, date in zip(titleList, summaryList, linkList, dateList):
+                link = link.attrs['href']
+                links = url[0:25] + link[0:55]
+                title = title.text
+                summary = summary.text.strip().split('..')[0]
+                date = date.text
+                LiveNews(
+                    title = title,
+                    summary = summary,
+                    link = links,
+                    publishDate = date
+                ).save()
 
-                    # 전일비, 등락률
-                    diff = today_close - yesterday_close
-                    diffrate = diff / today_close * 100
+    return HttpResponse("실시간 뉴스 크롤링 성공")
 
-                    dict_temp['company{0}'.format(j)] = {"company" : company_name, "code" : code_serializer.data[0]['code'],
-                                                            "close" : today_close, "diff" : diff, "diffrate": round(diffrate,2)}
+@api_view(['GET'])
+def mainnews_list(request):
+    if request.method == 'GET':
+        news = MainNews.objects.all().order_by('publishDay')
+        news_serializer = MainNewsSerializer(news, many=True)
+        return Response(news_serializer.data)
 
-            interested_serializer.data[i]['companies'] = dict_temp
-        for i in range(0,3):
-            for j in range(1,11):
-                del interested_serializer.data[i]['company{0}'.format(j)]
+@api_view(['GET'])
+def livenews_list(request):
+    if request.method == 'GET':
+        livenews = LiveNews.objects.all().order_by('-publishDate')
+        livenews_serializer = LiveNewsSerializer(livenews, many=True)
+        return Response(livenews_serializer.data)
 
-        return JsonResponse(interested_serializer.data, safe=False)
+@api_view(['GET'])
+def dc_list(request):
+    if request.method == 'GET':
+        dc = dcData.objects.all().order_by('-count')
+        dc_serializer = DcSerializer(dc, many=True)
+        return Response(dc_serializer.data)
