@@ -113,8 +113,8 @@ def before3M(request):
 def topStock(request):
     if request.method == 'GET':
         maxDate = TopStockPrice.objects.using("stockDB").order_by("-date")[0].date
-        topPriceList = TopStockPrice.objects.using("stockDB").filter(date=maxDate)
-        
+        topPriceList1 = TopStockPrice.objects.using("stockDB").filter(date=maxDate)
+        topPriceList = topPriceList1.order_by("rank")
         b = list()
         for a in topPriceList:
             temp=dict()
@@ -127,8 +127,8 @@ def topStock(request):
 
         
         maxDate = TopStockCap.objects.using("stockDB").order_by("-date")[0].date
-        topCapList = TopStockCap.objects.using("stockDB").filter(date=maxDate)
-        
+        topCapList1 = TopStockCap.objects.using("stockDB").filter(date=maxDate)
+        topCapList = topCapList1.order_by("rank")
         c= list()
         for a in topCapList:
             temp=dict()

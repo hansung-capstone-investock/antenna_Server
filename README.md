@@ -4,7 +4,7 @@
 
 #### [웹사이트 링크]([Antenna (ec2-3-37-87-254.ap-northeast-2.compute.amazonaws.com)](http://ec2-3-37-87-254.ap-northeast-2.compute.amazonaws.com/main/home))
 
-
+[Investock 안드로이드 앱 다운로드 링크 (APK 파일)](https://drive.google.com/file/d/1ukQNEdBiOwlxBDhW7QQSj2LaYBEMr56r/view?usp=sharing)
 
 #### 팀원
 
@@ -18,9 +18,8 @@
 #### 개발 환경
 
 - WEB SERVER : django
-
 - WEB FRONTEND : React
-  - DATABASE : MySQL
+- DATABASE : MySQL
 - Android App : Android Studio(Kotlin)
 
 
