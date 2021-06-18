@@ -177,8 +177,10 @@ def insertCap():
     for code in codelist:
         print(code)
         time.sleep(0.2)
-
-        cap_df = st.get_market_cap_by_date(today, today, f"{code}")
+        try:
+            cap_df = st.get_market_cap_by_date(today, today, f"{code}")
+        except:
+            continue
         stock_df = pd.DataFrame(index = cap_df.index,columns=['date','cap'])    
         stock_df['date'] = stock_df.index
 
