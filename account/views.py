@@ -60,13 +60,16 @@ def signup(request):
         if account_serializer.is_valid():
             account_serializer.save()
             interestedstockData(
-                name = request.data['id']
+                name = request.data['id'],
+                group = "그룹1"
             ).save()
             interestedstockData(
-                name = request.data['id']
+                name = request.data['id'],
+                group = "그룹2"
             ).save()
             interestedstockData(
-                name = request.data['id']
+                name = request.data['id'],
+                group = "그룹3"
             ).save()
             return JsonResponse({"code": "0000", "msg": "회원가입 성공하셨습니다."}, status=200)
         else:
