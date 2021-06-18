@@ -30,7 +30,7 @@
 - [WEB Server 소스 링크]([hansung-capstone-investock/antenna_Server (github.com)](https://github.com/hansung-capstone-investock/antenna_Server))
 - [WEB FRONT-END소스 링크]([hansung-capstone-investock/antenna_Web (github.com)](https://github.com/hansung-capstone-investock/antenna_Web))
 - [안드로이드 앱 소스 코드 링크]([hansung-capstone-investock/antenna_App (github.com)](https://github.com/hansung-capstone-investock/antenna_App))
-- [Youtube live](https://youtu.be/2hexRQMiLVE) (06-18 13:00~16:00)
+- [Youtube live](https://youtu.be/xuD6elcLBDc) (06-18 13:00~16:00)
 - 발표 자료 링크(Youtube)
 
 [![Investock 발표 영상](https://img.youtube.com/vi/VhZp_CgXxOY/0.jpg)](https://youtu.be/VhZp_CgXxOY)
